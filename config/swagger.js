@@ -10,12 +10,16 @@ const options = {
     },
     servers: [
       {
-        url: process.env.HOST || 'http://localhost',
+        url: process.env.API_URL || 'http://localhost:3000',
         description: 'Development server',
       },
+      {
+        url: process.env.PROD_URL || 'https://task-management-api-umwk.onrender.com',
+        description: 'Production server',
+      }
     ],
   },
-  apis: ['./controller/*.js'], // Path to the API docs
+  apis: ['./controller/*.js'],
 };
 
 const specs = swaggerJsdoc(options);
