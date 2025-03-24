@@ -1,0 +1,7 @@
+# Purpose: Ignore files and directories that should not be tracked by git
+# Documentation: https://git-scm.com/docs/gitignore
+# Example:
+# Ignore the node_modules directory which contains all the dependencies
+node_modules/
+# Ignore the .env file which contains sensitive information
+.env
