@@ -10,12 +10,14 @@ const options = {
     },
     servers: [
       {
-        url: process.env.API_URL || 'http://localhost:3000',
-        description: 'Development server',
-      },
-      {
         url: process.env.PROD_URL || 'https://task-management-api-umwk.onrender.com',
         description: 'Production server',
+       
+      },
+      {
+        url: process.env.API_URL || 'http://localhost:3000',
+        description: 'Development server',
+        
       }
     ],
   },
