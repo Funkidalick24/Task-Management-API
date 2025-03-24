@@ -10,7 +10,7 @@ const options = {
     },
     servers: [
       {
-        url: process.env.BASE_URL || 'http://localhost',
+        url: process.env.HOST || 'http://localhost',
         description: 'Development server',
       },
     ],
