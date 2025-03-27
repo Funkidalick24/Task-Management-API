@@ -22,14 +22,14 @@ const connectDB = require('../config/db');
  *           type: string
  *           format: email
  *           description: User's email address
+ *         phone_number:
+ *           type: string
+ *           description: User's contact phone number
  *         role:
  *           type: string
  *           enum: [admin, contributor, viewer]
  *           default: contributor
  *           description: User's role in the system
- *         phone_number:
- *           type: string
- *           description: User's contact phone number
  *         created_at:
  *           type: string
  *           format: date-time
@@ -166,17 +166,22 @@ const getUserById = async (req, res) => {
  *             required:
  *               - name
  *               - email
+ *               - phone_number
  *             properties:
  *               name:
  *                 type: string
+ *                 example: "John Doe"
  *               email:
  *                 type: string
  *                 format: email
+ *                 example: "john@example.com"
+ *               phone_number:
+ *                 type: string
+ *                 example: "+1234567890"
  *               role:
  *                 type: string
  *                 enum: [admin, contributor, viewer]
- *               profile_picture:
- *                 type: string
+ *                 example: "contributor"
  *     responses:
  *       201:
  *         description: User created successfully
@@ -193,29 +198,8 @@ const getUserById = async (req, res) => {
  *                   $ref: '#/components/schemas/User'
  *       400:
  *         description: Invalid request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Name and email are required
- *                 required:
- *                   type: array
- *                   items:
- *                     type: string
  *       500:
  *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 error:
- *                   type: string
  */
 const createUser = async (req, res) => {
     let client;
@@ -283,14 +267,15 @@ const createUser = async (req, res) => {
  *                 type: string
  *               email:
  *                 type: string
+ *                 format: email
+ *               phone_number:
+ *                 type: string
  *               role:
  *                 type: string
  *                 enum: [admin, contributor, viewer]
- *               profile_picture:
- *                 type: string
  *     responses:
  *       200:
- *         description: User updated
+ *         description: User updated successfully
  *       404:
  *         description: User not found
  *       500:
