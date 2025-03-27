@@ -1,3 +1,6 @@
+const express = require('express');
+const router = express.Router();
+const taskController = require('../controller/task');
 const mongodb = require('mongodb');
 const connectDB = require('../config/db');
 
@@ -8,31 +11,31 @@ const connectDB = require('../config/db');
  *     Task:
  *       type: object
  *       required:
- *         - taskName
- *         - taskDescription
+ *         - title
+ *         - description
  *       properties:
  *         _id:
  *           type: string
  *           description: Auto-generated MongoDB ID
- *         taskName:
+ *         title:
  *           type: string
- *           description: Name of the task
- *         taskDescription:
+ *         description:
  *           type: string
- *           description: Detailed description of the task
  *         status:
  *           type: string
- *           description: Current status of the task
  *           enum: [pending, in-progress, completed]
  *           default: pending
- *         category:
+ *         priority:
  *           type: string
- *           description: Category of the task
- *           default: general
- *         createdAt:
+ *           enum: [low, medium, high]
+ *           default: medium
+ *         due_date:
  *           type: string
  *           format: date-time
- *           description: Task creation timestamp
+ *         assigned_users:
+ *           type: array
+ *           items:
+ *             type: string
  */
 
 /**
@@ -112,7 +115,6 @@ const connectDB = require('../config/db');
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 error:
  *                   type: string
  */
@@ -151,7 +153,6 @@ const connectDB = require('../config/db');
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 id:
  *                   type: string
  *                 task:
@@ -178,7 +179,6 @@ const connectDB = require('../config/db');
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 error:
  *                   type: string
  */
@@ -221,7 +221,6 @@ const connectDB = require('../config/db');
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 modifiedCount:
  *                   type: number
  *       400:
@@ -252,7 +251,6 @@ const connectDB = require('../config/db');
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 error:
  *                   type: string
  */
@@ -279,7 +277,6 @@ const connectDB = require('../config/db');
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 deletedCount:
  *                   type: number
  *       400:
@@ -310,7 +307,6 @@ const connectDB = require('../config/db');
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 error:
  *                   type: string
  */
@@ -421,7 +417,6 @@ const getTask = async (req, res) => {
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 id:
  *                   type: string
  *                 task:
@@ -448,7 +443,6 @@ const getTask = async (req, res) => {
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 error:
  *                   type: string
  */
@@ -542,7 +536,6 @@ const createTask = async (req, res) => {
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 modifiedCount:
  *                   type: number
  *       400:
@@ -573,7 +566,6 @@ const createTask = async (req, res) => {
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 error:
  *                   type: string
  */
@@ -656,7 +648,6 @@ const updateTask = async (req, res) => {
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 deletedCount:
  *                   type: number
  *       400:
@@ -687,7 +678,6 @@ const updateTask = async (req, res) => {
  *               type: object
  *               properties:
  *                 message:
- *                   type: string
  *                 error:
  *                   type: string
  */
@@ -726,10 +716,253 @@ const deleteTask = async (req, res) => {
     }
 };
 
+/**
+ * @swagger
+ * /api/tasks/{id}/assign:
+ *   post:
+ *     summary: Assign users to a task
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userEmails
+ *             properties:
+ *               userEmails:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: email
+ *                 example: ["user1@example.com", "user2@example.com"]
+ *     responses:
+ *       200:
+ *         description: Users assigned successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 assignedUsers:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       email:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *       400:
+ *         description: Invalid request
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Server error
+ */
+const assignUsersToTask = async (req, res) => {
+    let client;
+    try {
+        const taskId = new mongodb.ObjectId(req.params.id);
+        const { userEmails } = req.body; // Change from userIds to userEmails
+
+        if (!Array.isArray(userEmails) || userEmails.length === 0) {
+            return res.status(400).json({
+                message: 'User emails array is required'
+            });
+        }
+
+        const { client: dbClient, db } = await connectDB();
+        client = dbClient;
+
+        // Verify task exists
+        const task = await db.collection('tasks').findOne({ _id: taskId });
+        if (!task) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
+
+        // Find users by email instead of ID
+        const users = await db.collection('users')
+            .find({ email: { $in: userEmails } })
+            .toArray();
+
+        if (users.length !== userEmails.length) {
+            return res.status(400).json({ 
+                message: 'One or more users not found',
+                foundUsers: users.map(u => u.email),
+                missingUsers: userEmails.filter(email => 
+                    !users.find(u => u.email === email)
+                )
+            });
+        }
+
+        const userIds = users.map(user => user._id);
+
+        // Create assignments
+        const assignments = userIds.map(userId => ({
+            task_id: taskId,
+            user_id: userId,
+            assigned_at: new Date()
+        }));
+
+        await db.collection('task_assignments').insertMany(assignments);
+
+        // Update task with assigned users
+        await db.collection('tasks').updateOne(
+            { _id: taskId },
+            { $addToSet: { assigned_users: { $each: userIds } } }
+        );
+
+        // Update users' assigned tasks
+        await db.collection('users').updateMany(
+            { _id: { $in: userIds } },
+            { $addToSet: { assigned_tasks: taskId } }
+        );
+
+        res.status(200).json({
+            message: 'Users assigned to task successfully',
+            assignedUsers: users.map(u => ({
+                email: u.email,
+                name: u.name
+            }))
+        });
+
+    } catch (err) {
+        res.status(500).json({
+            message: 'Error assigning users to task',
+            error: err.message
+        });
+    } finally {
+        if (client) await client.close();
+    }
+};
+
+// Add this Swagger documentation before the getTaskAssignees function
+/**
+ * @swagger
+ * /api/tasks/{id}/assignees:
+ *   get:
+ *     summary: Get users assigned to a task
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID
+ *     responses:
+ *       200:
+ *         description: List of users assigned to the task
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   userId:
+ *                     type: string
+ *                     description: User's ID
+ *                   name:
+ *                     type: string
+ *                     description: User's name
+ *                   email:
+ *                     type: string
+ *                     description: User's email
+ *                   assigned_at:
+ *                     type: string
+ *                     format: date-time
+ *                     description: When the user was assigned to the task
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 error:
+ *                   type: string
+ */
+
+// Update the getTaskAssignees function to include proper error handling
+const getTaskAssignees = async (req, res) => {
+    let client;
+    try {
+        const taskId = new mongodb.ObjectId(req.params.id);
+        const { client: dbClient, db } = await connectDB();
+        client = dbClient;
+
+        // First check if task exists
+        const task = await db.collection('tasks').findOne({ _id: taskId });
+        if (!task) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
+
+        const assignments = await db.collection('task_assignments')
+            .aggregate([
+                { $match: { task_id: taskId } },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'user_id',
+                        foreignField: '_id',
+                        as: 'user'
+                    }
+                },
+                { $unwind: '$user' },
+                {
+                    $project: {
+                        _id: 0,
+                        userId: '$user._id',
+                        name: '$user.name',
+                        email: '$user.email',
+                        assigned_at: 1
+                    }
+                }
+            ]).toArray();
+
+        res.status(200).json({
+            taskId: taskId.toString(),
+            taskTitle: task.title,
+            assigneeCount: assignments.length,
+            assignees: assignments
+        });
+
+    } catch (err) {
+        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
+            res.status(400).json({ message: 'Invalid task ID format' });
+        } else {
+            res.status(500).json({
+                message: 'Error fetching task assignees',
+                error: err.message
+            });
+        }
+    } finally {
+        if (client) await client.close();
+    }
+};
+
 module.exports = {
     getTasks,
     getTask,
     createTask,
     updateTask,
-    deleteTask
+    deleteTask,
+    assignUsersToTask,
+    getTaskAssignees
 };
