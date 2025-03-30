@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const connectDB = require('../config/db');
 const taskController = require('../controller/task');
 const mongodb = require('mongodb');
-const connectDB = require('../config/db');
+
 
 /**
  * @swagger
@@ -19,8 +20,10 @@ const connectDB = require('../config/db');
  *           description: Auto-generated MongoDB ID
  *         title:
  *           type: string
+ *           description: Title of the task
  *         description:
  *           type: string
+ *           description: Detailed description of the task
  *         status:
  *           type: string
  *           enum: [pending, in-progress, completed]
@@ -36,17 +39,18 @@ const connectDB = require('../config/db');
  *           type: array
  *           items:
  *             type: string
- */
-
-/**
- * @swagger
+ *           description: Array of user IDs assigned to this task (optional)
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ * 
  * /api/tasks:
  *   get:
- *     summary: Retrieve all tasks
+ *     summary: Get all tasks
  *     tags: [Tasks]
  *     responses:
  *       200:
- *         description: List of tasks
+ *         description: List of all tasks
  *         content:
  *           application/json:
  *             schema:
@@ -55,23 +59,48 @@ const connectDB = require('../config/db');
  *                 $ref: '#/components/schemas/Task'
  *       500:
  *         description: Server error
+ * 
+ *   post:
+ *     summary: Create a new task
+ *     tags: [Tasks]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - description
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [pending, in-progress, completed]
+ *               priority:
+ *                 type: string
+ *                 enum: [low, medium, high]
+ *               due_date:
+ *                 type: string
+ *                 format: date-time
+ *     responses:
+ *       201:
+ *         description: Task created successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Error fetching tasks
- *                 error:
- *                   type: string
- */
-
-/**
- * @swagger
+ *               $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Invalid input data
+ *       500:
+ *         description: Server error
+ * 
  * /api/tasks/{id}:
  *   get:
- *     summary: Get a task by id
+ *     summary: Get task by ID
  *     tags: [Tasks]
  *     parameters:
  *       - in: path
@@ -88,106 +117,14 @@ const connectDB = require('../config/db');
  *             schema:
  *               $ref: '#/components/schemas/Task'
  *       400:
- *         description: Invalid request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Invalid task ID format
+ *         description: Invalid task ID format
  *       404:
  *         description: Task not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Task not found
  *       500:
  *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 error:
- *                   type: string
- */
-
-/**
- * @swagger
- * /api/tasks:
- *   post:
- *     summary: Create a new task
- *     tags: [Tasks]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - taskName
- *               - taskDescription
- *             properties:
- *               taskName:
- *                 type: string
- *               taskDescription:
- *                 type: string
- *               status:
- *                 type: string
- *                 enum: [pending, in-progress, completed]
- *               category:
- *                 type: string
- *     responses:
- *       201:
- *         description: Task created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 id:
- *                   type: string
- *                 task:
- *                   $ref: '#/components/schemas/Task'
- *       400:
- *         description: Invalid request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Task name and description are required
- *                 required:
- *                   type: array
- *                   items:
- *                     type: string
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 error:
- *                   type: string
- */
-
-/**
- * @swagger
- * /api/tasks/{id}:
+ * 
  *   put:
- *     summary: Update a task
+ *     summary: Update task
  *     tags: [Tasks]
  *     parameters:
  *       - in: path
@@ -203,63 +140,31 @@ const connectDB = require('../config/db');
  *           schema:
  *             type: object
  *             properties:
- *               taskName:
+ *               title:
  *                 type: string
- *               taskDescription:
+ *               description:
  *                 type: string
  *               status:
  *                 type: string
  *                 enum: [pending, in-progress, completed]
- *               category:
+ *               priority:
  *                 type: string
+ *                 enum: [low, medium, high]
+ *               due_date:
+ *                 type: string
+ *                 format: date-time
  *     responses:
  *       200:
  *         description: Task updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 modifiedCount:
- *                   type: number
  *       400:
- *         description: Invalid request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Invalid task ID format
+ *         description: Invalid input data or task ID
  *       404:
  *         description: Task not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Task not found
  *       500:
  *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 error:
- *                   type: string
- */
-
-/**
- * @swagger
- * /api/tasks/{id}:
+ * 
  *   delete:
- *     summary: Delete a task
+ *     summary: Delete task
  *     tags: [Tasks]
  *     parameters:
  *       - in: path
@@ -271,52 +176,101 @@ const connectDB = require('../config/db');
  *     responses:
  *       200:
  *         description: Task deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 deletedCount:
- *                   type: number
  *       400:
- *         description: Invalid request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Invalid task ID format
+ *         description: Invalid task ID format
  *       404:
  *         description: Task not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Task not found
  *       500:
  *         description: Server error
+ * 
+ * /api/tasks/{id}/assign:
+ *   post:
+ *     summary: Assign users to a task
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userEmails
+ *             properties:
+ *               userEmails:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: email
+ *     responses:
+ *       200:
+ *         description: Users assigned successfully
+ *       400:
+ *         description: Invalid input data or task ID
+ *       404:
+ *         description: Task or users not found
+ *       500:
+ *         description: Server error
+ * 
+ * /api/tasks/{id}/assignees:
+ *   get:
+ *     summary: Get task assignees
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID
+ *     responses:
+ *       200:
+ *         description: List of task assignees
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 message:
- *                 error:
+ *                 taskId:
  *                   type: string
+ *                 taskTitle:
+ *                   type: string
+ *                 assigneeCount:
+ *                   type: integer
+ *                 assignees:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       userId:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       assigned_at:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         description: Invalid task ID format
+ *       404:
+ *         description: Task not found
+ *       500:
+ *         description: Server error
  */
+
 const getTasks = async (req, res) => {
     let client;
     try {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
         const tasks = await db.collection('tasks').find().toArray();
-        res.setHeader('Content-Type', 'application/json');
         res.status(200).json(tasks);
     } catch (err) {
         res.status(500).json({ 
@@ -328,29 +282,6 @@ const getTasks = async (req, res) => {
     }
 };
 
-/**
- * @swagger
- * /api/tasks/{id}:
- *   get:
- *     summary: Get a task by id
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Task ID
- *     responses:
- *       200:
- *         description: Task details
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Task'
- *       404:
- *         description: Task not found
- */
 const getTask = async (req, res) => {
     let client;
     try {
@@ -362,12 +293,11 @@ const getTask = async (req, res) => {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
         const task = await db.collection('tasks').findOne({ _id: taskId });
-        
+
         if (!task) {
             return res.status(404).json({ message: 'Task not found' });
         }
-        
-        res.setHeader('Content-Type', 'application/json');
+
         res.status(200).json(task);
     } catch (err) {
         if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
@@ -383,83 +313,18 @@ const getTask = async (req, res) => {
     }
 };
 
-/**
- * @swagger
- * /api/tasks:
- *   post:
- *     summary: Create a new task
- *     tags: [Tasks]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - taskName
- *               - taskDescription
- *             properties:
- *               taskName:
- *                 type: string
- *               taskDescription:
- *                 type: string
- *               status:
- *                 type: string
- *                 enum: [pending, in-progress, completed]
- *               category:
- *                 type: string
- *     responses:
- *       201:
- *         description: Task created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 id:
- *                   type: string
- *                 task:
- *                   $ref: '#/components/schemas/Task'
- *       400:
- *         description: Invalid request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Task name and description are required
- *                 required:
- *                   type: array
- *                   items:
- *                     type: string
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 error:
- *                   type: string
- */
 const createTask = async (req, res) => {
     let client;
     try {
-        const { taskName, taskDescription, status, category } = req.body;
+        const { title, description, status, priority, due_date } = req.body;
 
-        // Input validation
-        if (!taskName || !taskDescription) {
+        if (!title || !description) {
             return res.status(400).json({ 
-                message: 'Task name and description are required',
-                required: ['taskName', 'taskDescription']
+                message: 'Title and description are required',
+                required: ['title', 'description']
             });
         }
 
-        // Validate status if provided
         if (status && !['pending', 'in-progress', 'completed'].includes(status)) {
             return res.status(400).json({ 
                 message: 'Invalid status value',
@@ -467,26 +332,34 @@ const createTask = async (req, res) => {
             });
         }
 
+        if (priority && !['low', 'medium', 'high'].includes(priority)) {
+            return res.status(400).json({
+                message: 'Invalid priority value',
+                allowedValues: ['low', 'medium', 'high']
+            });
+        }
+
         const task = {
-            taskName,
-            taskDescription,
+            title,
+            description,
             status: status || 'pending',
-            category: category || 'general',
-            createdAt: new Date()
+            priority: priority || 'medium',
+            due_date: due_date ? new Date(due_date) : null,
+            assigned_users: [],
+            created_at: new Date()
         };
 
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
         const result = await db.collection('tasks').insertOne(task);
-        
+
         if (!result.acknowledged) {
             throw new Error('Failed to create task');
         }
 
         res.status(201).json({ 
-            message: 'Task created successfully',
-            id: result.insertedId,
-            task
+            ...task,
+            _id: result.insertedId
         });
     } catch (err) {
         res.status(500).json({ 
@@ -498,77 +371,6 @@ const createTask = async (req, res) => {
     }
 };
 
-/**
- * @swagger
- * /api/tasks/{id}:
- *   put:
- *     summary: Update a task
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Task ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               taskName:
- *                 type: string
- *               taskDescription:
- *                 type: string
- *               status:
- *                 type: string
- *                 enum: [pending, in-progress, completed]
- *               category:
- *                 type: string
- *     responses:
- *       200:
- *         description: Task updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 modifiedCount:
- *                   type: number
- *       400:
- *         description: Invalid request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Invalid task ID format
- *       404:
- *         description: Task not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Task not found
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 error:
- *                   type: string
- */
 const updateTask = async (req, res) => {
     let client;
     try {
@@ -577,9 +379,8 @@ const updateTask = async (req, res) => {
         }
 
         const taskId = new mongodb.ObjectId(req.params.id);
-        const { taskName, taskDescription, status, category } = req.body;
+        const { title, description, status, priority, due_date } = req.body;
 
-        // Validate status if provided
         if (status && !['pending', 'in-progress', 'completed'].includes(status)) {
             return res.status(400).json({ 
                 message: 'Invalid status value',
@@ -587,15 +388,23 @@ const updateTask = async (req, res) => {
             });
         }
 
+        if (priority && !['low', 'medium', 'high'].includes(priority)) {
+            return res.status(400).json({
+                message: 'Invalid priority value',
+                allowedValues: ['low', 'medium', 'high']
+            });
+        }
+
         const updateData = {
-            ...(taskName && { taskName }),
-            ...(taskDescription && { taskDescription }),
+            ...(title && { title }),
+            ...(description && { description }),
             ...(status && { status }),
-            ...(category && { category }),
+            ...(priority && { priority }),
+            ...(due_date && { due_date: new Date(due_date) }),
             updatedAt: new Date()
         };
 
-        if (Object.keys(updateData).length === 1) { // Only updatedAt exists
+        if (Object.keys(updateData).length === 1) {
             return res.status(400).json({ message: 'No valid fields provided for update' });
         }
 
@@ -626,61 +435,6 @@ const updateTask = async (req, res) => {
     }
 };
 
-/**
- * @swagger
- * /api/tasks/{id}:
- *   delete:
- *     summary: Delete a task
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Task ID
- *     responses:
- *       200:
- *         description: Task deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 deletedCount:
- *                   type: number
- *       400:
- *         description: Invalid request
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Invalid task ID format
- *       404:
- *         description: Task not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Task not found
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 error:
- *                   type: string
- */
 const deleteTask = async (req, res) => {
     let client;
     try {
@@ -716,65 +470,11 @@ const deleteTask = async (req, res) => {
     }
 };
 
-/**
- * @swagger
- * /api/tasks/{id}/assign:
- *   post:
- *     summary: Assign users to a task
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Task ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - userEmails
- *             properties:
- *               userEmails:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: email
- *                 example: ["user1@example.com", "user2@example.com"]
- *     responses:
- *       200:
- *         description: Users assigned successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 assignedUsers:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       email:
- *                         type: string
- *                       name:
- *                         type: string
- *       400:
- *         description: Invalid request
- *       404:
- *         description: Task not found
- *       500:
- *         description: Server error
- */
 const assignUsersToTask = async (req, res) => {
     let client;
     try {
         const taskId = new mongodb.ObjectId(req.params.id);
-        const { userEmails } = req.body; // Change from userIds to userEmails
+        const { userEmails } = req.body;
 
         if (!Array.isArray(userEmails) || userEmails.length === 0) {
             return res.status(400).json({
@@ -785,13 +485,11 @@ const assignUsersToTask = async (req, res) => {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
 
-        // Verify task exists
         const task = await db.collection('tasks').findOne({ _id: taskId });
         if (!task) {
             return res.status(404).json({ message: 'Task not found' });
         }
 
-        // Find users by email instead of ID
         const users = await db.collection('users')
             .find({ email: { $in: userEmails } })
             .toArray();
@@ -808,7 +506,6 @@ const assignUsersToTask = async (req, res) => {
 
         const userIds = users.map(user => user._id);
 
-        // Create assignments
         const assignments = userIds.map(userId => ({
             task_id: taskId,
             user_id: userId,
@@ -817,13 +514,11 @@ const assignUsersToTask = async (req, res) => {
 
         await db.collection('task_assignments').insertMany(assignments);
 
-        // Update task with assigned users
         await db.collection('tasks').updateOne(
             { _id: taskId },
             { $addToSet: { assigned_users: { $each: userIds } } }
         );
 
-        // Update users' assigned tasks
         await db.collection('users').updateMany(
             { _id: { $in: userIds } },
             { $addToSet: { assigned_tasks: taskId } }
@@ -847,59 +542,6 @@ const assignUsersToTask = async (req, res) => {
     }
 };
 
-// Add this Swagger documentation before the getTaskAssignees function
-/**
- * @swagger
- * /api/tasks/{id}/assignees:
- *   get:
- *     summary: Get users assigned to a task
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Task ID
- *     responses:
- *       200:
- *         description: List of users assigned to the task
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   userId:
- *                     type: string
- *                     description: User's ID
- *                   name:
- *                     type: string
- *                     description: User's name
- *                   email:
- *                     type: string
- *                     description: User's email
- *                   assigned_at:
- *                     type: string
- *                     format: date-time
- *                     description: When the user was assigned to the task
- *       404:
- *         description: Task not found
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 error:
- *                   type: string
- */
-
-// Update the getTaskAssignees function to include proper error handling
 const getTaskAssignees = async (req, res) => {
     let client;
     try {
@@ -907,7 +549,6 @@ const getTaskAssignees = async (req, res) => {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
 
-        // First check if task exists
         const task = await db.collection('tasks').findOne({ _id: taskId });
         if (!task) {
             return res.status(404).json({ message: 'Task not found' });
