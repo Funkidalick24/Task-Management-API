@@ -4,6 +4,15 @@ require('dotenv').config();
 const MongoClient = mongodb.MongoClient;
 const url = process.env.MONGODB_URL;
 
+const mongoose = require('mongoose');
+
+mongoose.connect(process.env.MONGODB_URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
+    .then(() => console.log('Connected to MongoDB'))
+    .catch(err => console.error('MongoDB connection error:', err));
+
 if (!url) {
     throw new Error('MONGODB_URL is not defined in environment variables');
 }

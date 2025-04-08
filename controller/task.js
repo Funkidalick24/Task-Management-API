@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const connectDB = require('../config/db');
-const taskController = require('../controller/task');
 const mongodb = require('mongodb');
+const Task = require('../models/task');
 
 
 /**
@@ -265,345 +265,74 @@ const mongodb = require('mongodb');
  *         description: Server error
  */
 
+
+
+
 const getTasks = async (req, res) => {
-    let client;
     try {
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-        const tasks = await db.collection('tasks').find().toArray();
-        res.status(200).json(tasks);
-    } catch (err) {
-        res.status(500).json({ 
-            message: 'Error fetching tasks', 
-            error: err.message 
-        });
-    } finally {
-        if (client) await client.close();
+        const tasks = await Task.find();
+        res.status(200).json({ success: true, data: tasks });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-const getTask = async (req, res) => {
-    let client;
+const getTaskById = async (req, res) => {
     try {
-        if (!req.params.id) {
-            return res.status(400).json({ message: 'Task ID is required' });
-        }
-
-        const taskId = new mongodb.ObjectId(req.params.id);
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-        const task = await db.collection('tasks').findOne({ _id: taskId });
-
+        const task = await Task.findById(req.params.id);
         if (!task) {
-            return res.status(404).json({ message: 'Task not found' });
+            return res.status(404).json({ success: false, message: 'Task not found' });
         }
-
-        res.status(200).json(task);
-    } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            res.status(400).json({ message: 'Invalid task ID format' });
-        } else {
-            res.status(500).json({ 
-                message: 'Error fetching task', 
-                error: err.message 
-            });
-        }
-    } finally {
-        if (client) await client.close();
+        res.status(200).json({ success: true, data: task });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 const createTask = async (req, res) => {
-    let client;
     try {
-        const { title, description, status, priority, due_date } = req.body;
-
-        if (!title || !description) {
-            return res.status(400).json({ 
-                message: 'Title and description are required',
-                required: ['title', 'description']
-            });
-        }
-
-        if (status && !['pending', 'in-progress', 'completed'].includes(status)) {
-            return res.status(400).json({ 
-                message: 'Invalid status value',
-                allowedValues: ['pending', 'in-progress', 'completed']
-            });
-        }
-
-        if (priority && !['low', 'medium', 'high'].includes(priority)) {
-            return res.status(400).json({
-                message: 'Invalid priority value',
-                allowedValues: ['low', 'medium', 'high']
-            });
-        }
-
-        const task = {
-            title,
-            description,
-            status: status || 'pending',
-            priority: priority || 'medium',
-            due_date: due_date ? new Date(due_date) : null,
-            assigned_users: [],
-            created_at: new Date()
-        };
-
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-        const result = await db.collection('tasks').insertOne(task);
-
-        if (!result.acknowledged) {
-            throw new Error('Failed to create task');
-        }
-
-        res.status(201).json({ 
-            ...task,
-            _id: result.insertedId
+        const task = await Task.create({
+            ...req.body,
+            creator: req.user.id
         });
-    } catch (err) {
-        res.status(500).json({ 
-            message: 'Error creating task', 
-            error: err.message 
-        });
-    } finally {
-        if (client) await client.close();
+        res.status(201).json({ success: true, data: task });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 const updateTask = async (req, res) => {
-    let client;
     try {
-        if (!req.params.id) {
-            return res.status(400).json({ message: 'Task ID is required' });
+        const task = await Task.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        );
+        if (!task) {
+            return res.status(404).json({ success: false, message: 'Task not found' });
         }
-
-        const taskId = new mongodb.ObjectId(req.params.id);
-        const { title, description, status, priority, due_date } = req.body;
-
-        if (status && !['pending', 'in-progress', 'completed'].includes(status)) {
-            return res.status(400).json({ 
-                message: 'Invalid status value',
-                allowedValues: ['pending', 'in-progress', 'completed']
-            });
-        }
-
-        if (priority && !['low', 'medium', 'high'].includes(priority)) {
-            return res.status(400).json({
-                message: 'Invalid priority value',
-                allowedValues: ['low', 'medium', 'high']
-            });
-        }
-
-        const updateData = {
-            ...(title && { title }),
-            ...(description && { description }),
-            ...(status && { status }),
-            ...(priority && { priority }),
-            ...(due_date && { due_date: new Date(due_date) }),
-            updatedAt: new Date()
-        };
-
-        if (Object.keys(updateData).length === 1) {
-            return res.status(400).json({ message: 'No valid fields provided for update' });
-        }
-
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-        const result = await db.collection('tasks')
-            .updateOne({ _id: taskId }, { $set: updateData });
-
-        if (result.matchedCount === 0) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
-
-        res.status(200).json({ 
-            message: 'Task updated successfully',
-            modifiedCount: result.modifiedCount
-        });
-    } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            res.status(400).json({ message: 'Invalid task ID format' });
-        } else {
-            res.status(500).json({ 
-                message: 'Error updating task', 
-                error: err.message 
-            });
-        }
-    } finally {
-        if (client) await client.close();
+        res.status(200).json({ success: true, data: task });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 const deleteTask = async (req, res) => {
-    let client;
     try {
-        if (!req.params.id) {
-            return res.status(400).json({ message: 'Task ID is required' });
-        }
-
-        const taskId = new mongodb.ObjectId(req.params.id);
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-        const result = await db.collection('tasks')
-            .deleteOne({ _id: taskId });
-
-        if (result.deletedCount === 0) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
-
-        res.status(200).json({ 
-            message: 'Task deleted successfully',
-            deletedCount: result.deletedCount
-        });
-    } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            res.status(400).json({ message: 'Invalid task ID format' });
-        } else {
-            res.status(500).json({ 
-                message: 'Error deleting task', 
-                error: err.message 
-            });
-        }
-    } finally {
-        if (client) await client.close();
-    }
-};
-
-const assignUsersToTask = async (req, res) => {
-    let client;
-    try {
-        const taskId = new mongodb.ObjectId(req.params.id);
-        const { userEmails } = req.body;
-
-        if (!Array.isArray(userEmails) || userEmails.length === 0) {
-            return res.status(400).json({
-                message: 'User emails array is required'
-            });
-        }
-
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-
-        const task = await db.collection('tasks').findOne({ _id: taskId });
+        const task = await Task.findByIdAndDelete(req.params.id);
         if (!task) {
-            return res.status(404).json({ message: 'Task not found' });
+            return res.status(404).json({ success: false, message: 'Task not found' });
         }
-
-        const users = await db.collection('users')
-            .find({ email: { $in: userEmails } })
-            .toArray();
-
-        if (users.length !== userEmails.length) {
-            return res.status(400).json({ 
-                message: 'One or more users not found',
-                foundUsers: users.map(u => u.email),
-                missingUsers: userEmails.filter(email => 
-                    !users.find(u => u.email === email)
-                )
-            });
-        }
-
-        const userIds = users.map(user => user._id);
-
-        const assignments = userIds.map(userId => ({
-            task_id: taskId,
-            user_id: userId,
-            assigned_at: new Date()
-        }));
-
-        await db.collection('task_assignments').insertMany(assignments);
-
-        await db.collection('tasks').updateOne(
-            { _id: taskId },
-            { $addToSet: { assigned_users: { $each: userIds } } }
-        );
-
-        await db.collection('users').updateMany(
-            { _id: { $in: userIds } },
-            { $addToSet: { assigned_tasks: taskId } }
-        );
-
-        res.status(200).json({
-            message: 'Users assigned to task successfully',
-            assignedUsers: users.map(u => ({
-                email: u.email,
-                name: u.name
-            }))
-        });
-
-    } catch (err) {
-        res.status(500).json({
-            message: 'Error assigning users to task',
-            error: err.message
-        });
-    } finally {
-        if (client) await client.close();
-    }
-};
-
-const getTaskAssignees = async (req, res) => {
-    let client;
-    try {
-        const taskId = new mongodb.ObjectId(req.params.id);
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-
-        const task = await db.collection('tasks').findOne({ _id: taskId });
-        if (!task) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
-
-        const assignments = await db.collection('task_assignments')
-            .aggregate([
-                { $match: { task_id: taskId } },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'user_id',
-                        foreignField: '_id',
-                        as: 'user'
-                    }
-                },
-                { $unwind: '$user' },
-                {
-                    $project: {
-                        _id: 0,
-                        userId: '$user._id',
-                        name: '$user.name',
-                        email: '$user.email',
-                        assigned_at: 1
-                    }
-                }
-            ]).toArray();
-
-        res.status(200).json({
-            taskId: taskId.toString(),
-            taskTitle: task.title,
-            assigneeCount: assignments.length,
-            assignees: assignments
-        });
-
-    } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            res.status(400).json({ message: 'Invalid task ID format' });
-        } else {
-            res.status(500).json({
-                message: 'Error fetching task assignees',
-                error: err.message
-            });
-        }
-    } finally {
-        if (client) await client.close();
+        res.status(200).json({ success: true, data: {} });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 module.exports = {
     getTasks,
-    getTask,
+    getTaskById,
     createTask,
     updateTask,
-    deleteTask,
-    assignUsersToTask,
-    getTaskAssignees
+    deleteTask
 };

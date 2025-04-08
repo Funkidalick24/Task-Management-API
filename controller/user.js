@@ -53,6 +53,16 @@ const connectDB = require('../config/db');
  *               type: array
  *               items:
  *                 $ref: '#/components/schemas/User'
+ *             examples:
+ *               example1:
+ *                 value:
+ *                   - _id: "64f1b2c3d4e5f6a7b8c9d0e1"
+ *                     name: "John Doe"
+ *                     email: "john.doe@example.com"
+ *                     phone_number: "1234567890"
+ *                     role: "contributor"
+ *                     assigned_tasks: []
+ *                     created_at: "2023-10-01T12:00:00Z"
  *       500:
  *         description: Server error
  *   
@@ -80,6 +90,13 @@ const connectDB = require('../config/db');
  *               role:
  *                 type: string
  *                 enum: [admin, contributor, viewer]
+ *           examples:
+ *             example1:
+ *               value:
+ *                 name: "Jane Doe"
+ *                 email: "jane.doe@example.com"
+ *                 phone_number: "0987654321"
+ *                 role: "admin"
  *     responses:
  *       201:
  *         description: User created successfully
