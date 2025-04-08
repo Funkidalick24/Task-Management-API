@@ -94,7 +94,7 @@ app.use('/api', isAuthenticated, userRoutes);
 // Root route
 app.get('/', (req, res) => {
     if (req.isAuthenticated()) {
-        res.send(`Welcome ${req.user.username}! Visit /api-docs for documentation.`);
+        res.send(`Welcome ${req.user.username}! Visit <a href="/api-docs">API Documentation</a>for documentation.`);
       
     } else {
        res.send(`Welcome! Please <a href="/auth/github/callback">login with GitHub</a> to access the API documentation.`);
