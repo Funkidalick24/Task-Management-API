@@ -328,110 +328,70 @@ const deleteTask = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
-
 const assignUserToTask = async (req, res) => {
+    let client;
     try {
-        const { taskId } = req.params;
-        const { userId } = req.body;
-
-        const task = await Task.findById(taskId);
-        const user = await User.findById(userId);
-
-        if (!task || !user) {
-            return res.status(404).json({
-                success: false,
-                message: task ? 'User not found' : 'Task not found'
-            });
-        }
-
-        // Check if user is already assigned
-        if (task.assignedUsers && task.assignedUsers.includes(userId)) {
+        const taskId = new mongodb.ObjectId(req.params.id);
+        const { userEmails } = req.body;
+        if (!Array.isArray(userEmails) || userEmails.length === 0) {
             return res.status(400).json({
-                success: false,
-                message: 'User already assigned to this task'
+                message: 'User emails array is required'
             });
         }
-
-        // Add user to task's assigned users
-        task.assignedUsers = task.assignedUsers || [];
-        task.assignedUsers.push(userId);
-        await task.save();
-
-        res.status(200).json({
-            success: true,
-            message: 'User assigned successfully',
-            data: task
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
-
-const removeUserFromTask = async (req, res) => {
-    try {
-        const { taskId, userId } = req.params;
-
-        const task = await Task.findById(taskId);
+        const { client: dbClient, db } = await connectDB();
+        client = dbClient;
+        const task = await db.collection('tasks').findOne({ _id: taskId });
         if (!task) {
-            return res.status(404).json({
-                success: false,
-                message: 'Task not found'
+            return res.status(404).json({ message: 'Task not found' });
+        }
+        const users = await db.collection('users')
+            .find({ email: { $in: userEmails } })
+            .toArray();
+        if (users.length !== userEmails.length) {
+            return res.status(400).json({
+                message: 'One or more users not found',
+                foundUsers: users.map(u => u.email),
+                missingUsers: userEmails.filter(email => 
+                    !users.find(u => u.email === email)
+                )
             });
         }
-
-        // Remove user from task's assigned users
-        if (task.assignedUsers) {
-            task.assignedUsers = task.assignedUsers.filter(id => id.toString() !== userId);
-            await task.save();
-        }
-
+        const userIds = users.map(user => user._id);
+        const assignments = userIds.map(userId => ({
+            task_id: taskId,
+            user_id: userId,
+            assigned_at: new Date()
+        }));
+        await db.collection('task_assignments').insertMany(assignments);
+        await db.collection('tasks').updateOne(
+            { _id: taskId },
+            { $addToSet: { assigned_users: { $each: userIds } } }
+        );
+        await db.collection('users').updateMany(
+            { _id: { $in: userIds } },
+            { $addToSet: { assigned_tasks: taskId } }
+        );
         res.status(200).json({
-            success: true,
-            message: 'User removed from task successfully',
-            data: task
+            message: 'Users assigned to task successfully',
+            assignedUsers: users.map(u => ({
+                email: u.email,
+                name: u.name
+            }))
         });
-    } catch (error) {
+    } catch (err) {
         res.status(500).json({
-            success: false,
-            message: error.message
+            message: 'Error assigning users to task',
+            error: err.message
         });
+    } finally {
+        if (client) await client.close();
     }
 };
 
-const getTaskAssignments = async (req, res) => {
-    try {
-        const { taskId } = req.params;
-        
-        const task = await Task.findById(taskId)
-            .populate('assignedUsers', 'name email role')  // Only return these user fields
-            .select('title description assignedUsers');
-            
-        if (!task) {
-            return res.status(404).json({
-                success: false,
-                message: 'Task not found'
-            });
-        }
 
-        res.status(200).json({
-            success: true,
-            data: {
-                taskId: task._id,
-                title: task.title,
-                description: task.description,
-                assignedUsers: task.assignedUsers
-            }
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-};
+
+
+
 
 const getTaskAssignees = async (req, res) => {
     try {
@@ -465,6 +425,5 @@ module.exports = {
     updateTask,
     deleteTask,
     assignUserToTask,
-    removeUserFromTask,
     getTaskAssignees
 };

@@ -7,7 +7,6 @@ const {
     updateTask,
     deleteTask,
     assignUserToTask,
-    removeUserFromTask,
     getTaskAssignees
 } = require('../controller/task');
 const { isAuthenticated } = require('../middleware/auth');
@@ -195,7 +194,6 @@ router.post('/tasks', isAuthenticated, createTask);
 router.put('/tasks/:id', isAuthenticated, updateTask);
 router.delete('/tasks/:id', isAuthenticated, deleteTask);
 router.post('/tasks/:taskId/assign', isAuthenticated, assignUserToTask);
-router.delete('/tasks/:taskId/users/:userId', isAuthenticated, removeUserFromTask);
 router.get('/tasks/:id/users', isAuthenticated, getTaskAssignees);
 
 module.exports = router;
