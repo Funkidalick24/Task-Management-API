@@ -14,8 +14,8 @@ const app = express();
 // CORS Configuration
 const corsOptions = {
     origin: process.env.NODE_ENV === 'production' 
-    ? 'https://task-management-api-umwk.onrender.com'  
-    : 'http://localhost:3000',
+        ? process.env.PRODUCTION_URL
+        : 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -26,12 +26,13 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(session({
-    secret: process.env.GITHUB_CLIENT_SECRET,
+    secret: process.env.SESSION_SECRET || process.env.GITHUB_CLIENT_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production', // Only use secure cookies in production
+        httpOnly: true,
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     },
     proxy: true
@@ -45,10 +46,17 @@ app.use(passport.session());
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: process.env.GITHUB_REDIRECT_URI
-}, (accessToken, refreshToken, profile, done) => {
-    // Store user profile in session
-    return done(null, profile);
+    callbackURL: process.env.NODE_ENV === 'production'
+        ? `${process.env.PRODUCTION_URL}/auth/github/callback`
+        : process.env.GITHUB_REDIRECT_URI
+}, async (accessToken, refreshToken, profile, done) => {
+    try {
+        // Store user profile in session
+        return done(null, profile);
+    } catch (err) {
+        console.error('Auth Error:', err);
+        return done(err, null);
+    }
 }));
 
 // Serialize/Deserialize user
