@@ -13,7 +13,9 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-    origin: "*",
+    origin: process.env.NODE_ENV === 'production' 
+    ? 'https://task-management-api-umwk.onrender.com'  
+    : 'http://localhost:3000',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -29,9 +31,10 @@ app.use(session({
     saveUninitialized: false,
     cookie: {
         secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
+        httpOnly: false,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+    },
+    proxy: true
 }));
 
 // Initialize Passport
