@@ -6,24 +6,32 @@ const options = {
     info: {
       title: 'Task Management API',
       version: '1.0.0',
-      description: 'A simple Task Management API',
+      description: 'API for managing tasks and user assignments',
     },
     servers: [
       {
-        url: process.env.PROD_URL || 'https://task-management-api-umwk.onrender.com',
-        description: 'Production server',
-       
+        url: process.env.NODE_ENV === 'production' 
+          ? process.env.PRODUCTION_URL 
+          : 'http://localhost:3000',
       },
-      {
-        url: process.env.API_URL || 'http://localhost:3000',
-        description: 'Development server',
-        
-      }
     ],
-    
+    components: {
+      securitySchemes: {
+        githubAuth: {
+          type: 'oauth2',
+          flows: {
+            authorizationCode: {
+              authorizationUrl: '/auth/github',
+              scopes: {
+                'user:email': 'Read user email'
+              }
+            }
+          }
+        }
+      }
+    }
   },
-  apis: ['./controller/*.js'],
+  apis: ['./routes/*.js'], // Path to the API routes
 };
 
-const specs = swaggerJsdoc(options);
-module.exports = specs;
+module.exports = swaggerJsdoc(options);

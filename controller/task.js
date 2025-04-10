@@ -329,6 +329,110 @@ const deleteTask = async (req, res) => {
     }
 };
 
+exports.assignUserToTask = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { userId } = req.body;
+
+        const task = await Task.findById(taskId);
+        const user = await User.findById(userId);
+
+        if (!task || !user) {
+            return res.status(404).json({
+                success: false,
+                message: task ? 'User not found' : 'Task not found'
+            });
+        }
+
+        // Check if user is already assigned
+        if (task.assignedUsers && task.assignedUsers.includes(userId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'User already assigned to this task'
+            });
+        }
+
+        // Add user to task's assigned users
+        task.assignedUsers = task.assignedUsers || [];
+        task.assignedUsers.push(userId);
+        await task.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'User assigned successfully',
+            data: task
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+exports.removeUserFromTask = async (req, res) => {
+    try {
+        const { taskId, userId } = req.params;
+
+        const task = await Task.findById(taskId);
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Task not found'
+            });
+        }
+
+        // Remove user from task's assigned users
+        if (task.assignedUsers) {
+            task.assignedUsers = task.assignedUsers.filter(id => id.toString() !== userId);
+            await task.save();
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'User removed from task successfully',
+            data: task
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+exports.getTaskAssignments = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        
+        const task = await Task.findById(taskId)
+            .populate('assignedUsers', 'name email role')  // Only return these user fields
+            .select('title description assignedUsers');
+            
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Task not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                taskId: task._id,
+                title: task.title,
+                description: task.description,
+                assignedUsers: task.assignedUsers
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 module.exports = {
     getTasks,
     getTaskById,

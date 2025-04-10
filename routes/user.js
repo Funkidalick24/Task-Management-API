@@ -17,8 +17,7 @@ router.get('/users/:id', getUserById);
 // Protected routes (data modification)
 router.post('/users', isAuthenticated,createUser);
 router.put('/users/:id', isAuthenticated,updateUser);
-
-// Admin-only routes
 router.delete('/users/:id', isAuthenticated, deleteUser);
+
 
 module.exports = router;
