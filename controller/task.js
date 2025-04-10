@@ -329,7 +329,7 @@ const deleteTask = async (req, res) => {
     }
 };
 
-exports.assignUserToTask = async (req, res) => {
+const assignUserToTask = async (req, res) => {
     try {
         const { taskId } = req.params;
         const { userId } = req.body;
@@ -370,7 +370,7 @@ exports.assignUserToTask = async (req, res) => {
     }
 };
 
-exports.removeUserFromTask = async (req, res) => {
+const removeUserFromTask = async (req, res) => {
     try {
         const { taskId, userId } = req.params;
 
@@ -401,7 +401,7 @@ exports.removeUserFromTask = async (req, res) => {
     }
 };
 
-exports.getTaskAssignments = async (req, res) => {
+const getTaskAssignments = async (req, res) => {
     try {
         const { taskId } = req.params;
         
@@ -438,5 +438,8 @@ module.exports = {
     getTaskById,
     createTask,
     updateTask,
-    deleteTask
+    deleteTask,
+    assignUserToTask,
+    removeUserFromTask,
+    getTaskAssignments
 };

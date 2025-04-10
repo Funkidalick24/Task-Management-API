@@ -15,23 +15,11 @@ const options = {
           : 'http://localhost:3000',
       },
     ],
-    components: {
-      securitySchemes: {
-        githubAuth: {
-          type: 'oauth2',
-          flows: {
-            authorizationCode: {
-              authorizationUrl: '/auth/github',
-              scopes: {
-                'user:email': 'Read user email'
-              }
-            }
-          }
-        }
-      }
-    }
   },
-  apis: ['./routes/*.js'], // Path to the API routes
+  apis: [
+    './controllers/*.js',  // Add controllers path
+    './routes/*.js'
+  ],
 };
 
 module.exports = swaggerJsdoc(options);
