@@ -193,7 +193,7 @@ router.get('/tasks/:id', getTaskById);
 router.post('/tasks', isAuthenticated, createTask);
 router.put('/tasks/:id', isAuthenticated, updateTask);
 router.delete('/tasks/:id', isAuthenticated, deleteTask);
-router.post('/tasks/:taskId/assign', isAuthenticated, assignUserToTask);
+router.post('/tasks/:id/assign', isAuthenticated, assignUserToTask);
 router.get('/tasks/:id/users', isAuthenticated, getTaskAssignees);
 
 module.exports = router;
