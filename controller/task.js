@@ -433,6 +433,31 @@ const getTaskAssignments = async (req, res) => {
     }
 };
 
+const getTaskAssignees = async (req, res) => {
+    try {
+        const task = await Task.findById(req.params.id)
+            .populate('assignedUsers', 'name email')
+            .select('assignedUsers');
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Task not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: task.assignedUsers
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
 module.exports = {
     getTasks,
     getTaskById,
@@ -441,5 +466,5 @@ module.exports = {
     deleteTask,
     assignUserToTask,
     removeUserFromTask,
-    getTaskAssignments
+    getTaskAssignees
 };

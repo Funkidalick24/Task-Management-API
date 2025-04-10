@@ -2,22 +2,18 @@ const express = require('express');
 const router = express.Router();
 const {
     getUsers,
-    getUserById,    
+    getUserById,
     createUser,
     updateUser,
-    deleteUser  
+    deleteUser
 } = require('../controller/user');
-const {isAuthenticated} = require('../middleware/auth');
+const { isAuthenticated } = require('../middleware/auth');
 
-
-// Public routes (read-only)
-router.get('/users',getUsers);
+// User routes
+router.get('/users', getUsers);
 router.get('/users/:id', getUserById);
-
-// Protected routes (data modification)
-router.post('/users', isAuthenticated,createUser);
-router.put('/users/:id', isAuthenticated,updateUser);
+router.post('/users', isAuthenticated, createUser);
+router.put('/users/:id', isAuthenticated, updateUser);
 router.delete('/users/:id', isAuthenticated, deleteUser);
-
 
 module.exports = router;

@@ -96,8 +96,11 @@ const isAuthenticated = (req, res, next) => {
     res.status(401).json({ message: 'Unauthorized' });
 };
 
-// API Documentation
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+// API Documentation - Make it publicly accessible
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, { 
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }' 
+}));
 
 // Protected Routes
 app.use('/api', isAuthenticated, taskRoutes);
