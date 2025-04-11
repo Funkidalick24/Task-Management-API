@@ -122,39 +122,6 @@ const { isAuthenticated } = require('../middleware/auth');
  *         description: Task not found
  * 
  * 
- * /api/tasks/{id}/users:
- *   get:
- *     summary: Get task assignees
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of users assigned to the task
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                       name:
- *                         type: string
- *                       email:
- *                         type: string
- *       404:
- *         description: Task not found
  */
 
 /**

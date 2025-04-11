@@ -293,9 +293,20 @@ const getTasks = async (req, res) => {
 const getTaskById = async (req, res) => {
     let client;
     try {
-        const taskId = new mongodb.ObjectId(req.params.id);
+        const { id } = req.params;
+        
+        // Validate MongoDB ObjectId format
+        if (!mongodb.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid task ID format'
+            });
+        }
+
+        const taskId = new mongodb.ObjectId(id);
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
+        
         const task = await db.collection('tasks').findOne({ _id: taskId });
         
         if (!task) {
@@ -310,12 +321,7 @@ const getTaskById = async (req, res) => {
             data: task
         });
     } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid task ID format'
-            });
-        }
+        console.error('getTaskById error:', err);
         res.status(500).json({
             success: false,
             message: 'Error fetching task',
@@ -512,10 +518,21 @@ const assignUserToTask = async (req, res) => {
 const getTaskAssignees = async (req, res) => {
     let client;
     try {
-        const taskId = new mongodb.ObjectId(req.params.id);
+        const { id } = req.params;
+
+        // Validate MongoDB ObjectId format
+        if (!mongodb.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid task ID format'
+            });
+        }
+
+        const taskId = new mongodb.ObjectId(id);
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
 
+        // First check if task exists
         const task = await db.collection('tasks').findOne({ _id: taskId });
         if (!task) {
             return res.status(404).json({
@@ -524,6 +541,7 @@ const getTaskAssignees = async (req, res) => {
             });
         }
 
+        // Get assigned users from task_assignments collection
         const assignees = await db.collection('task_assignments')
             .aggregate([
                 { $match: { task_id: taskId } },
@@ -557,12 +575,7 @@ const getTaskAssignees = async (req, res) => {
             }
         });
     } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid task ID format'
-            });
-        }
+        console.error('getTaskAssignees error:', err);
         res.status(500).json({
             success: false,
             message: 'Error fetching task assignees',
