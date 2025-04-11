@@ -698,70 +698,7 @@ const getTaskAssignees = async (req, res) => {
     }
 };
 
-const removeUserFromTask = async (req, res) => {
-    let client;
-    try {
-        const taskId = new mongodb.ObjectId(req.params.taskId);
-        const { email } = req.params;  // Changed from userId to email
 
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-
-        // First check if task exists
-        const task = await db.collection('tasks').findOne({ _id: taskId });
-        if (!task) {
-            return res.status(404).json({
-                success: false,
-                message: 'Task not found'
-            });
-        }
-
-        // Find user by email
-        const user = await db.collection('users').findOne({ email });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // Remove the assignment
-        const result = await db.collection('task_assignments').deleteOne({
-            task_id: taskId,
-            user_id: user._id
-        });
-
-        if (result.deletedCount === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'User is not assigned to this task'
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'User removed from task successfully',
-            data: {
-                taskId: taskId.toString(),
-                userEmail: email
-            }
-        });
-    } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid task ID format'
-            });
-        }
-        res.status(500).json({
-            success: false,
-            message: 'Error removing user from task',
-            error: err.message
-        });
-    } finally {
-        if (client) await client.close();
-    }
-};
 
 module.exports = {
     getTasks,
@@ -770,6 +707,5 @@ module.exports = {
     updateTask,
     deleteTask,
     assignUserToTask,
-    getTaskAssignees,
-    removeUserFromTask  // Add this export
+    getTaskAssignees  
 };
