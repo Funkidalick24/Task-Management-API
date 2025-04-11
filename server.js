@@ -74,7 +74,8 @@ app.get('/auth/github',
     passport.authenticate('github', { scope: ['user:email'] })
 );
 
-app.get('auth/github/callback',
+// Fix the typo here - missing forward slash
+app.get('/auth/github/callback',  // Changed from 'auth/github/callback'
     passport.authenticate('github', { failureRedirect: '/login' }),
     (req, res) => {
         res.redirect('/api-docs');
