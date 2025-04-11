@@ -280,6 +280,7 @@ const getTasks = async (req, res) => {
             data: tasks
         });
     } catch (err) {
+        console.error('getTasks error:', err);
         res.status(500).json({ 
             success: false, 
             message: 'Error fetching tasks',
@@ -349,7 +350,6 @@ const createTask = async (req, res) => {
             description,
             status,
             priority,
-            created_by: req.user?.id,
             created_at: new Date(),
             assigned_users: []
         };
@@ -358,14 +358,14 @@ const createTask = async (req, res) => {
         client = dbClient;
         const result = await db.collection('tasks').insertOne(task);
         
+        const createdTask = await db.collection('tasks').findOne({ _id: result.insertedId });
+        
         res.status(201).json({
             success: true,
-            data: {
-                _id: result.insertedId,
-                ...task
-            }
+            data: createdTask
         });
     } catch (err) {
+        console.error('createTask error:', err);
         res.status(500).json({
             success: false,
             message: 'Error creating task',
@@ -379,36 +379,49 @@ const createTask = async (req, res) => {
 const updateTask = async (req, res) => {
     let client;
     try {
-        const taskId = new mongodb.ObjectId(req.params.id);
-        const updateData = { ...req.body, updated_at: new Date() };
-        delete updateData._id;
+        const { id } = req.params;
 
+        // Validate MongoDB ObjectId format
+        if (!mongodb.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid task ID format'
+            });
+        }
+
+        const taskId = new mongodb.ObjectId(id);
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
-        const result = await db.collection('tasks').findOneAndUpdate(
-            { _id: taskId },
-            { $set: updateData },
-            { returnDocument: 'after' }
-        );
 
-        if (!result.value) {
+        // Check if task exists
+        const existingTask = await db.collection('tasks').findOne({ _id: taskId });
+        if (!existingTask) {
             return res.status(404).json({
                 success: false,
                 message: 'Task not found'
             });
         }
 
+        const updateData = {
+            ...existingTask,
+            ...req.body,
+            updated_at: new Date()
+        };
+        delete updateData._id;
+
+        await db.collection('tasks').updateOne(
+            { _id: taskId },
+            { $set: updateData }
+        );
+
+        const updatedTask = await db.collection('tasks').findOne({ _id: taskId });
+
         res.status(200).json({
             success: true,
-            data: result.value
+            data: updatedTask
         });
     } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid task ID format'
-            });
-        }
+        console.error('updateTask error:', err);
         res.status(500).json({
             success: false,
             message: 'Error updating task',
@@ -422,29 +435,37 @@ const updateTask = async (req, res) => {
 const deleteTask = async (req, res) => {
     let client;
     try {
-        const taskId = new mongodb.ObjectId(req.params.id);
+        const { id } = req.params;
+
+        // Validate MongoDB ObjectId format
+        if (!mongodb.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid task ID format'
+            });
+        }
+
+        const taskId = new mongodb.ObjectId(id);
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
-        const result = await db.collection('tasks').findOneAndDelete({ _id: taskId });
 
-        if (!result.value) {
+        const task = await db.collection('tasks').findOne({ _id: taskId });
+        if (!task) {
             return res.status(404).json({
                 success: false,
                 message: 'Task not found'
             });
         }
 
+        await db.collection('tasks').deleteOne({ _id: taskId });
+
         res.status(200).json({
             success: true,
-            data: result.value
+            message: 'Task deleted successfully',
+            data: task
         });
     } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid task ID format'
-            });
-        }
+        console.error('deleteTask error:', err);
         res.status(500).json({
             success: false,
             message: 'Error deleting task',
