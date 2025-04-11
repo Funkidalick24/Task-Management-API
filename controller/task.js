@@ -632,7 +632,6 @@ const getTaskAssignees = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Validate MongoDB ObjectId format
         if (!mongodb.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
@@ -644,8 +643,12 @@ const getTaskAssignees = async (req, res) => {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
 
-        // First check if task exists
-        const task = await db.collection('tasks').findOne({ _id: taskId });
+        // Check if task exists and get assigned users directly from tasks collection
+        const task = await db.collection('tasks').findOne(
+            { _id: taskId },
+            { projection: { title: 1, assigned_users: 1 } }
+        );
+
         if (!task) {
             return res.status(404).json({
                 success: false,
@@ -653,29 +656,12 @@ const getTaskAssignees = async (req, res) => {
             });
         }
 
-        // Get assigned users from task_assignments collection
-        const assignees = await db.collection('task_assignments')
-            .aggregate([
-                { $match: { task_id: taskId } },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'user_id',
-                        foreignField: '_id',
-                        as: 'user'
-                    }
-                },
-                { $unwind: '$user' },
-                {
-                    $project: {
-                        _id: 0,
-                        userId: '$user._id',
-                        name: '$user.name',
-                        email: '$user.email',
-                        assigned_at: 1
-                    }
-                }
-            ]).toArray();
+        // Get user details for assigned users
+        const assignees = task.assigned_users && task.assigned_users.length > 0 ?
+            await db.collection('users')
+                .find({ _id: { $in: task.assigned_users.map(id => new mongodb.ObjectId(id)) } })
+                .project({ name: 1, email: 1 })
+                .toArray() : [];
 
         res.status(200).json({
             success: true,
@@ -683,7 +669,11 @@ const getTaskAssignees = async (req, res) => {
                 taskId: taskId.toString(),
                 taskTitle: task.title,
                 assigneeCount: assignees.length,
-                assignees
+                assignees: assignees.map(user => ({
+                    userId: user._id,
+                    name: user.name,
+                    email: user.email
+                }))
             }
         });
     } catch (err) {
