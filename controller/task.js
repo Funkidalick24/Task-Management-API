@@ -439,8 +439,6 @@ const updateTask = async (req, res) => {
     let client;
     try {
         const { id } = req.params;
-
-        // Validate MongoDB ObjectId format
         if (!mongodb.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
@@ -449,52 +447,52 @@ const updateTask = async (req, res) => {
         }
 
         const taskId = new mongodb.ObjectId(id);
-        const { title, description, status, priority } = req.body;
-
-        // Validate inputs
-        const updateData = {};
-        if (title?.trim()) updateData.title = title.trim();
-        if (description?.trim()) updateData.description = description.trim();
-        if (['pending', 'in-progress', 'completed'].includes(status)) {
-            updateData.status = status;
-        }
-        if (['low', 'medium', 'high'].includes(priority)) {
-            updateData.priority = priority;
-        }
-        updateData.updated_at = new Date();
-
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
 
-        const result = await db.collection('tasks').findOneAndUpdate(
+        // Validate and prepare update data
+        const { title, description, status, priority } = req.body;
+        const updateData = {
+            updated_at: new Date()
+        };
+
+        // Only include fields that are provided
+        if (title) updateData.title = title;
+        if (description) updateData.description = description;
+        if (status && ['pending', 'in-progress', 'completed'].includes(status)) {
+            updateData.status = status;
+        }
+        if (priority && ['low', 'medium', 'high'].includes(priority)) {
+            updateData.priority = priority;
+        }
+
+        // Use updateOne instead of findOneAndUpdate
+        const result = await db.collection('tasks').updateOne(
             { _id: taskId },
-            { $set: updateData },
-            {
-                returnDocument: 'after',
-                projection: {
-                    title: 1,
-                    description: 1,
-                    status: 1,
-                    priority: 1,
-                    created_at: 1,
-                    updated_at: 1,
-                    assigned_users: 1
-                }
-            }
+            { $set: updateData }
         );
 
-        if (!result.value) {
+        if (result.matchedCount === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'Task not found'
             });
         }
 
+        // Fetch the updated task
+        const updatedTask = await db.collection('tasks').findOne({ _id: taskId });
+
         res.status(200).json({
             success: true,
             data: {
-                id: result.value._id,
-                ...result.value
+                id: updatedTask._id,
+                title: updatedTask.title,
+                description: updatedTask.description,
+                status: updatedTask.status,
+                priority: updatedTask.priority,
+                updated_at: updatedTask.updated_at,
+                created_at: updatedTask.created_at,
+                assigned_users: updatedTask.assigned_users || []
             }
         });
     } catch (err) {
