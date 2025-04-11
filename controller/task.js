@@ -511,8 +511,6 @@ const deleteTask = async (req, res) => {
     let client;
     try {
         const { id } = req.params;
-
-        // Validate MongoDB ObjectId format
         if (!mongodb.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
@@ -524,35 +522,39 @@ const deleteTask = async (req, res) => {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
 
-        const result = await db.collection('tasks').findOneAndDelete(
-            { _id: taskId },
-            {
-                projection: {
-                    title: 1,
-                    description: 1,
-                    status: 1,
-                    priority: 1,
-                    created_at: 1,
-                    updated_at: 1
-                }
-            }
-        );
-
-        if (!result.value) {
+        // First check if task exists
+        const taskExists = await db.collection('tasks').findOne({ _id: taskId });
+        if (!taskExists) {
             return res.status(404).json({
                 success: false,
                 message: 'Task not found'
             });
         }
 
-        res.status(200).json({
-            success: true,
-            message: 'Task deleted successfully',
-            data: {
-                id: result.value._id,
-                ...result.value
-            }
-        });
+        // Delete the task
+        const result = await db.collection('tasks').deleteOne({ _id: taskId });
+
+        if (result.deletedCount === 1) {
+            res.status(200).json({
+                success: true,
+                message: 'Task deleted successfully',
+                data: {
+                    id: taskId,
+                    title: taskExists.title,
+                    description: taskExists.description,
+                    status: taskExists.status,
+                    priority: taskExists.priority,
+                    created_at: taskExists.created_at,
+                    updated_at: taskExists.updated_at,
+                    assigned_users: taskExists.assigned_users || []
+                }
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Error deleting task'
+            });
+        }
     } catch (err) {
         console.error('deleteTask error:', err);
         res.status(500).json({
