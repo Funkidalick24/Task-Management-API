@@ -706,6 +706,7 @@ module.exports = {
     createTask,
     updateTask,
     deleteTask,
-    assignUserToTask,
-    getTaskAssignees  
+    getTaskAssignees,
+    assignUserToTask
+     
 };
