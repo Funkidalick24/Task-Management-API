@@ -273,18 +273,38 @@ const getTasks = async (req, res) => {
     try {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
-        const tasks = await db.collection('tasks').find().toArray();
+        const tasks = await db.collection('tasks')
+            .find()
+            .project({
+                title: 1,
+                description: 1,
+                status: 1,
+                priority: 1,
+                created_at: 1,
+                updated_at: 1,
+                assigned_users: 1
+            })
+            .toArray();
+
         res.status(200).json({
             success: true,
             count: tasks.length,
-            data: tasks
+            data: tasks.map(task => ({
+                id: task._id,
+                title: task.title,
+                description: task.description,
+                status: task.status || 'pending',
+                priority: task.priority || 'medium',
+                created_at: task.created_at,
+                updated_at: task.updated_at,
+                assigned_users: task.assigned_users || []
+            }))
         });
     } catch (err) {
         console.error('getTasks error:', err);
         res.status(500).json({ 
             success: false, 
-            message: 'Error fetching tasks',
-            error: err.message 
+            message: 'Error fetching tasks'
         });
     } finally {
         if (client) await client.close();
@@ -308,7 +328,20 @@ const getTaskById = async (req, res) => {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
         
-        const task = await db.collection('tasks').findOne({ _id: taskId });
+        const task = await db.collection('tasks').findOne(
+            { _id: taskId },
+            {
+                projection: {
+                    title: 1,
+                    description: 1,
+                    status: 1,
+                    priority: 1,
+                    created_at: 1,
+                    updated_at: 1,
+                    assigned_users: 1
+                }
+            }
+        );
         
         if (!task) {
             return res.status(404).json({
@@ -319,7 +352,16 @@ const getTaskById = async (req, res) => {
         
         res.status(200).json({
             success: true,
-            data: task
+            data: {
+                id: task._id,
+                title: task.title,
+                description: task.description,
+                status: task.status || 'pending',
+                priority: task.priority || 'medium',
+                created_at: task.created_at,
+                updated_at: task.updated_at,
+                assigned_users: task.assigned_users || []
+            }
         });
     } catch (err) {
         console.error('getTaskById error:', err);
@@ -338,31 +380,48 @@ const createTask = async (req, res) => {
     try {
         const { title, description, priority = 'medium', status = 'pending' } = req.body;
         
-        if (!title || !description) {
+        if (!title?.trim() || !description?.trim()) {
             return res.status(400).json({
                 success: false,
                 message: 'Title and description are required'
             });
         }
 
-        const task = {
-            title,
-            description,
-            status,
-            priority,
+        const taskData = {
+            title: title.trim(),
+            description: description.trim(),
+            status: ['pending', 'in-progress', 'completed'].includes(status) ? status : 'pending',
+            priority: ['low', 'medium', 'high'].includes(priority) ? priority : 'medium',
             created_at: new Date(),
+            updated_at: new Date(),
             assigned_users: []
         };
 
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
-        const result = await db.collection('tasks').insertOne(task);
+        const result = await db.collection('tasks').insertOne(taskData);
         
-        const createdTask = await db.collection('tasks').findOne({ _id: result.insertedId });
+        const createdTask = await db.collection('tasks').findOne(
+            { _id: result.insertedId },
+            {
+                projection: {
+                    title: 1,
+                    description: 1,
+                    status: 1,
+                    priority: 1,
+                    created_at: 1,
+                    updated_at: 1,
+                    assigned_users: 1
+                }
+            }
+        );
         
         res.status(201).json({
             success: true,
-            data: createdTask
+            data: {
+                id: createdTask._id,
+                ...createdTask
+            }
         });
     } catch (err) {
         console.error('createTask error:', err);
@@ -390,35 +449,53 @@ const updateTask = async (req, res) => {
         }
 
         const taskId = new mongodb.ObjectId(id);
+        const { title, description, status, priority } = req.body;
+
+        // Validate inputs
+        const updateData = {};
+        if (title?.trim()) updateData.title = title.trim();
+        if (description?.trim()) updateData.description = description.trim();
+        if (['pending', 'in-progress', 'completed'].includes(status)) {
+            updateData.status = status;
+        }
+        if (['low', 'medium', 'high'].includes(priority)) {
+            updateData.priority = priority;
+        }
+        updateData.updated_at = new Date();
+
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
 
-        // Check if task exists
-        const existingTask = await db.collection('tasks').findOne({ _id: taskId });
-        if (!existingTask) {
+        const result = await db.collection('tasks').findOneAndUpdate(
+            { _id: taskId },
+            { $set: updateData },
+            {
+                returnDocument: 'after',
+                projection: {
+                    title: 1,
+                    description: 1,
+                    status: 1,
+                    priority: 1,
+                    created_at: 1,
+                    updated_at: 1,
+                    assigned_users: 1
+                }
+            }
+        );
+
+        if (!result.value) {
             return res.status(404).json({
                 success: false,
                 message: 'Task not found'
             });
         }
 
-        const updateData = {
-            ...existingTask,
-            ...req.body,
-            updated_at: new Date()
-        };
-        delete updateData._id;
-
-        await db.collection('tasks').updateOne(
-            { _id: taskId },
-            { $set: updateData }
-        );
-
-        const updatedTask = await db.collection('tasks').findOne({ _id: taskId });
-
         res.status(200).json({
             success: true,
-            data: updatedTask
+            data: {
+                id: result.value._id,
+                ...result.value
+            }
         });
     } catch (err) {
         console.error('updateTask error:', err);
@@ -449,20 +526,34 @@ const deleteTask = async (req, res) => {
         const { client: dbClient, db } = await connectDB();
         client = dbClient;
 
-        const task = await db.collection('tasks').findOne({ _id: taskId });
-        if (!task) {
+        const result = await db.collection('tasks').findOneAndDelete(
+            { _id: taskId },
+            {
+                projection: {
+                    title: 1,
+                    description: 1,
+                    status: 1,
+                    priority: 1,
+                    created_at: 1,
+                    updated_at: 1
+                }
+            }
+        );
+
+        if (!result.value) {
             return res.status(404).json({
                 success: false,
                 message: 'Task not found'
             });
         }
 
-        await db.collection('tasks').deleteOne({ _id: taskId });
-
         res.status(200).json({
             success: true,
             message: 'Task deleted successfully',
-            data: task
+            data: {
+                id: result.value._id,
+                ...result.value
+            }
         });
     } catch (err) {
         console.error('deleteTask error:', err);
