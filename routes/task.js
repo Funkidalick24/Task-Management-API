@@ -7,43 +7,63 @@ const {
     updateTask,
     deleteTask,
     assignUserToTask,
-    getTaskAssignees
+    getTaskAssignees,
+    removeUserFromTask
 } = require('../controller/task');
 const { isAuthenticated } = require('../middleware/auth');
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Task:
+ *       type: object
+ *       required:
+ *         - title
+ *         - description
+ *       properties:
+ *         _id:
+ *           type: string
+ *         title:
+ *           type: string
+ *         description:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [pending, in-progress, completed]
+ *         priority:
+ *           type: string
+ *           enum: [low, medium, high]
+ *         assigned_users:
+ *           type: array
+ *           items:
+ *             type: string
+ * 
  * /api/tasks:
  *   get:
  *     summary: Get all tasks
  *     tags: [Tasks]
  *     responses:
  *       200:
- *         description: List of all tasks
+ *         description: List of tasks
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Task'
  *   post:
  *     summary: Create a new task
  *     tags: [Tasks]
- *     security:
- *       - githubAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - title
- *               - description
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
+ *             $ref: '#/components/schemas/Task'
  *     responses:
  *       201:
- *         description: Task created successfully
- *       401:
- *         description: Unauthorized
+ *         description: Task created
  * 
  * /api/tasks/{id}:
  *   get:
@@ -57,30 +77,38 @@ const { isAuthenticated } = require('../middleware/auth');
  *           type: string
  *     responses:
  *       200:
- *         description: Task details
+ *         description: Task found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
  *       404:
  *         description: Task not found
+ *   
  *   put:
  *     summary: Update task
  *     tags: [Tasks]
- *     security:
- *       - githubAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Task'
  *     responses:
  *       200:
- *         description: Task updated successfully
- *       401:
- *         description: Unauthorized
+ *         description: Task updated
+ *       404:
+ *         description: Task not found
+ * 
  *   delete:
  *     summary: Delete task
  *     tags: [Tasks]
- *     security:
- *       - githubAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -89,68 +117,10 @@ const { isAuthenticated } = require('../middleware/auth');
  *           type: string
  *     responses:
  *       200:
- *         description: Task deleted successfully
- *       401:
- *         description: Unauthorized
+ *         description: Task deleted
+ *       404:
+ *         description: Task not found
  * 
- * /api/tasks/{taskId}/assign:
- *   post:
- *     summary: Assign users to task
- *     tags: [Tasks]
- *     security:
- *       - githubAuth: []
- *     parameters:
- *       - in: path
- *         name: taskId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Users assigned successfully
- *       401:
- *         description: Unauthorized
- * 
- * /api/tasks/{taskId}/users/{userId}:
- *   delete:
- *     summary: Remove user from task
- *     tags: [Tasks]
- *     security:
- *       - githubAuth: []
- *     parameters:
- *       - in: path
- *         name: taskId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User removed successfully
- *       401:
- *         description: Unauthorized
- * 
- * /api/tasks/{id}/users:
- *   get:
- *     summary: Get task assignments
- *     tags: [Tasks]
- *     security:
- *       - githubAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: List of assigned users
- *       401:
- *         description: Unauthorized
  * 
  * /api/tasks/{id}/users:
  *   get:
@@ -160,7 +130,6 @@ const { isAuthenticated } = require('../middleware/auth');
  *       - in: path
  *         name: id
  *         required: true
- *         description: Task ID
  *         schema:
  *           type: string
  *     responses:
@@ -188,6 +157,51 @@ const { isAuthenticated } = require('../middleware/auth');
  *         description: Task not found
  */
 
+/**
+ * @swagger
+ * /api/tasks/{taskId}/users/{email}:
+ *   delete:
+ *     summary: Remove user from task using email
+ *     tags: [Tasks]
+ *     parameters:
+ *       - in: path
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the task
+ *       - in: path
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Email of the user to remove
+ *     responses:
+ *       200:
+ *         description: User removed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     taskId:
+ *                       type: string
+ *                     userEmail:
+ *                       type: string
+ *       404:
+ *         description: Task or user not found
+ *       400:
+ *         description: Invalid task ID format
+ */
+
+// API Routes
 router.get('/tasks', getTasks);
 router.get('/tasks/:id', getTaskById);
 router.post('/tasks', isAuthenticated, createTask);
@@ -195,5 +209,6 @@ router.put('/tasks/:id', isAuthenticated, updateTask);
 router.delete('/tasks/:id', isAuthenticated, deleteTask);
 router.post('/tasks/:id/assign', isAuthenticated, assignUserToTask);
 router.get('/tasks/:id/users', isAuthenticated, getTaskAssignees);
+router.delete('/tasks/:taskId/users/:email', isAuthenticated, removeUserFromTask);
 
 module.exports = router;
