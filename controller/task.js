@@ -217,52 +217,7 @@ const Task = require('../models/task');
  *         description: Task or users not found
  *       500:
  *         description: Server error
- * 
- * /api/tasks/{id}/assignees:
- *   get:
- *     summary: Get task assignees
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Task ID
- *     responses:
- *       200:
- *         description: List of task assignees
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 taskId:
- *                   type: string
- *                 taskTitle:
- *                   type: string
- *                 assigneeCount:
- *                   type: integer
- *                 assignees:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       userId:
- *                         type: string
- *                       name:
- *                         type: string
- *                       email:
- *                         type: string
- *                       assigned_at:
- *                         type: string
- *                         format: date-time
- *       400:
- *         description: Invalid task ID format
- *       404:
- *         description: Task not found
- *       500:
- *         description: Server error
+ 
  */
 
 
@@ -630,54 +585,64 @@ const assignUserToTask = async (req, res) => {
 const getTaskAssignees = async (req, res) => {
     let client;
     try {
-        const taskId = new mongodb.ObjectId(req.params.id);
-        const { client: dbClient, db } = await connectDB();
-        client = dbClient;
-        const task = await db.collection('tasks').findOne({ _id: taskId });
-        if (!task) {
-            return res.status(404).json({ message: 'Task not found' });
-        }
-        const assignments = await db.collection('task_assignments')
-            .aggregate([
-                { $match: { task_id: taskId } },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'user_email',
-                        foreignField: 'email',
-                        as: 'user'
-                    }
-                },
-                { $unwind: '$user' },
-                {
-                    $project: {
-                        _id: 0,
-                        userId: '$user._id',
-                        name: '$user.name',
-                        email: '$user.email',
-                        assigned_at: 1
-                    }
-                }
-            ]).toArray();
-        res.status(200).json({
-            taskId: taskId.toString(),
-            taskTitle: task.title,
-            assigneeCount: assignments.length,
-            assignees: assignments
-        });
-    } catch (err) {
-        if (err instanceof mongodb.MongoParseError || err instanceof mongodb.BSONTypeError) {
-            res.status(400).json({ message: 'Invalid task ID format' });
-        } else {
-            res.status(500).json({
-                message: 'Error fetching task assignees',
-                error: err.message
+        const { id } = req.params;
+
+        if (!mongodb.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid task ID format'
             });
         }
+
+        const taskId = new mongodb.ObjectId(id);
+        const { client: dbClient, db } = await connectDB();
+        client = dbClient;
+
+        // Check if task exists and get assigned users directly from tasks collection
+        const task = await db.collection('tasks').findOne(
+            { _id: taskId },
+            { projection: { title: 1, assigned_users: 1 } }
+        );
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: 'Task not found'
+            });
+        }
+
+        // Get user details for assigned users
+        const assignees = task.assigned_users && task.assigned_users.length > 0 ?
+            await db.collection('users')
+                .find({ _id: { $in: task.assigned_users.map(id => new mongodb.ObjectId(id)) } })
+                .project({ name: 1, email: 1 })
+                .toArray() : [];
+
+        res.status(200).json({
+            success: true,
+            data: {
+                taskId: taskId.toString(),
+                taskTitle: task.title,
+                assigneeCount: assignees.length,
+                assignees: assignees.map(user => ({
+                    userId: user._id,
+                    name: user.name,
+                    email: user.email
+                }))
+            }
+        });
+    } catch (err) {
+        console.error('getTaskAssignees error:', err);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching task assignees',
+            error: err.message
+        });
     } finally {
         if (client) await client.close();
     }
 };
+
 
 
 module.exports = {
