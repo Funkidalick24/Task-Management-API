@@ -567,55 +567,6 @@ const assignUsersToTask = async (req, res) => {
     }
 };
 
-/**
- * @swagger
- * /api/tasks/{id}/assignees:
- *   get:
- *     summary: Get users assigned to a task
- *     tags: [Tasks]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Task ID
- *     responses:
- *       200:
- *         description: List of users assigned to the task
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   userId:
- *                     type: string
- *                     description: User's ID
- *                   name:
- *                     type: string
- *                     description: User's name
- *                   email:
- *                     type: string
- *                     description: User's email
- *                   assigned_at:
- *                     type: string
- *                     format: date-time
- *                     description: When the user was assigned to the task
- *       404:
- *         description: Task not found
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                 error:
- *                   type: string
- */
 const getTaskAssignees = async (req, res) => {
     let client;
     try {
