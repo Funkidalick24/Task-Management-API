@@ -643,8 +643,8 @@ const getTaskAssignees = async (req, res) => {
                 {
                     $lookup: {
                         from: 'users',
-                        localField: 'user_id',
-                        foreignField: '_id',
+                        localField: 'user_email',
+                        foreignField: 'email',
                         as: 'user'
                     }
                 },
